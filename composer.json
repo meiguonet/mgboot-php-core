@@ -1,0 +1,24 @@
+{
+  "name": "meiguonet/mgboot-php",
+  "description": "a lightweight api framework like spring boot for php 8.0.0 or above",
+  "keywords": ["php framework", "lightweight"],
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Simon.Ye",
+      "email": "samlinye@163.com"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "mgboot\\core\\": "src/"
+    }
+  },
+  "require": {
+    "php": ">=8.0.0",
+    "meiguonet/mgboot-php-common": "^1.0.0",
+    "psr/log": "^1.1.4",
+    "nikic/fast-route": "^1.3.0",
+    "lcobucci/jwt": "^4.0.3"
+  }
+}

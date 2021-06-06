@@ -1,0 +1,7 @@
+vendor
+swoole_ide_helper
+composer.lock
+/test*.php
+.idea
+
+!.gitkeep
