@@ -90,7 +90,8 @@ final class RouteRulesBuilder
                             'handlerFuncArgs' => self::buildHandlerFuncArgs($method)
                         ],
                         self::buildValidateRules($method),
-                        self::buildJwtAuthSettings($method)
+                        self::buildJwtAuthSettings($method),
+                        self::buildExtraAnnotations($method)
                     );
                 } catch (Throwable) {
                     continue;
@@ -365,5 +366,29 @@ final class RouteRulesBuilder
         }
 
         return ['validateRules' => $anno->getRules(), 'failfast' => $anno->isFailfast()];
+    }
+
+    private static function buildExtraAnnotations(ReflectionMethod $method): array
+    {
+        try {
+            $annos = $method->getAttributes();
+        } catch (Throwable) {
+            return [];
+        }
+
+        $list1 = array_map(fn($it) => StringUtils::ensureLeft($it->getName(), "\\"), $annos);
+
+        $list2 = [
+            StringUtils::ensureLeft(DeleteMapping::class, "\\"),
+            StringUtils::ensureLeft(GetMapping::class, "\\"),
+            StringUtils::ensureLeft(JwtAuth::class, "\\"),
+            StringUtils::ensureLeft(PatchMapping::class, "\\"),
+            StringUtils::ensureLeft(PostMapping::class, "\\"),
+            StringUtils::ensureLeft(PutMapping::class, "\\"),
+            StringUtils::ensureLeft(RequestMapping::class, "\\"),
+            StringUtils::ensureLeft(Validate::class, "\\")
+        ];
+
+        return ['extraAnnotations' => array_values(array_diff($list1, $list2))];
     }
 }

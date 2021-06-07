@@ -6,10 +6,8 @@ use Lcobucci\JWT\Token;
 use mgboot\common\ArrayUtils;
 use mgboot\common\Cast;
 use mgboot\common\JsonUtils;
-use mgboot\common\ReflectUtils;
 use mgboot\common\StringUtils;
 use mgboot\common\UploadedFile;
-use mgboot\core\annotation\MapKey;
 use mgboot\core\http\server\Request;
 use ReflectionClass;
 use ReflectionMethod;
@@ -519,10 +517,31 @@ final class HandlerFuncArgsInjector
 
     private static function getMapKeyByProperty(ReflectionProperty $property): string
     {
-        $anno = ReflectUtils::getPropertyAnnotation($property, MapKey::class);
+        try {
+            $annos = $property->getAttributes();
+        } catch (Throwable) {
+            $annos = [];
+        }
 
-        if ($anno instanceof MapKey && $anno->getValue() !== '') {
-            return strtolower($anno->getValue());
+        $anno = null;
+
+        foreach ($annos as $it) {
+            if (str_ends_with($it->getName(), 'MapKey')) {
+                $anno = $it;
+                break;
+            }
+        }
+
+        if (is_object($anno) && method_exists($anno, 'getValue')) {
+            try {
+                $mapKey = Cast::toString($anno->getValue());
+            } catch (Throwable) {
+                $mapKey = '';
+            }
+
+            if ($mapKey !== '') {
+                return $mapKey;
+            }
         }
 
         $pname = $property->getName();

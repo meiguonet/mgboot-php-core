@@ -3,7 +3,6 @@
 namespace mgboot\core;
 
 use FastRoute\Dispatcher;
-use mgboot\common\ArrayUtils;
 use mgboot\common\StringUtils;
 use mgboot\common\Swoole;
 use mgboot\core\exception\AccessTokenExpiredException;
@@ -43,6 +42,9 @@ final class MgBoot
     private static bool $executeTimeLogEnabled = false;
     private static ?LoggerInterface $executeTimeLogLogger = null;
     private static ?CorsSettings $corsSettings = null;
+    /**
+     * @var JwtSettings[]
+     */
     private static array $jwtSettings = [];
     private static bool $gzipOutputEnabled = true;
 
@@ -201,17 +203,9 @@ final class MgBoot
 
     public static function withJwtSettings(JwtSettings $settings): void
     {
-        $mapKey = self::buildGlobalVarKey();
-
-        if (!ArrayUtils::isList(self::$jwtSettings[$mapKey])) {
-            self::$jwtSettings[$mapKey] = [$settings];
-            return;
-        }
-
         $idx = -1;
 
-        /* @var JwtSettings $item */
-        foreach (self::$jwtSettings[$mapKey] as $i => $item) {
+        foreach (self::$jwtSettings as $i => $item) {
             if ($item->getKey() === $settings->getKey()) {
                 $idx = $i;
                 break;
@@ -219,22 +213,15 @@ final class MgBoot
         }
 
         if ($idx < 0) {
-            self::$jwtSettings[$mapKey][] = $settings;
+            self::$jwtSettings[] = $settings;
         } else {
-            self::$jwtSettings[$mapKey][$idx] = $settings;
+            self::$jwtSettings[$idx] = $settings;
         }
     }
 
     public static function getJwtSettings(string $key): ?JwtSettings
     {
-        $mapKey = self::buildGlobalVarKey();
-
-        if (!ArrayUtils::isList(self::$jwtSettings[$mapKey])) {
-            return null;
-        }
-
-        /* @var JwtSettings $settings */
-        foreach (self::$jwtSettings[$mapKey] as $settings) {
+        foreach (self::$jwtSettings as $settings) {
             if ($settings->getKey() === $key) {
                 return $settings;
             }

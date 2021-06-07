@@ -13,8 +13,18 @@ final class RouteRule
     private string $requestMapping = '';
     private string $handler = '';
     private string $jwtSettingsKey = '';
+
+    /**
+     * @var string[]
+     */
     private array $validateRules = [];
+
     private bool $failfast = false;
+
+    /**
+     * @var string[]
+     */
+    private array $extraAnnotations = [];
 
     /**
      * @var HandlerFuncArgInfo[]
@@ -112,7 +122,7 @@ final class RouteRule
     }
 
     /**
-     * @return array
+     * @return string[]
      */
     public function getValidateRules(): array
     {
@@ -145,6 +155,22 @@ final class RouteRule
     {
         $this->failfast = $failfast;
         return $this;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getExtraAnnotations(): array
+    {
+        return $this->extraAnnotations;
+    }
+
+    /**
+     * @param string[] $extraAnnotations
+     */
+    public function setExtraAnnotations(array $extraAnnotations): void
+    {
+        $this->extraAnnotations = $extraAnnotations;
     }
 
     /**
