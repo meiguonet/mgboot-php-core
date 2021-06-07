@@ -3,12 +3,14 @@
 namespace mgboot\core\mvc;
 
 use Lcobucci\JWT\Token;
+use mgboot\common\AppConf;
 use mgboot\common\ArrayUtils;
 use mgboot\common\Cast;
 use mgboot\common\JsonUtils;
 use mgboot\common\StringUtils;
 use mgboot\common\UploadedFile;
 use mgboot\core\http\server\Request;
+use mgboot\core\MgBoot;
 use ReflectionClass;
 use ReflectionMethod;
 use ReflectionNamedType;
@@ -320,6 +322,8 @@ final class HandlerFuncArgsInjector
 
     private static function injectDto(Request $req, array &$args, HandlerFuncArgInfo $info): void
     {
+        $logger = MgBoot::getRuntimeLogger();
+        $debugMode = AppConf::getBoolean('logging.enable-dto-bind-log');
         $fmt1 = self::$err1 . ', reason: %s';
         $isGet = strtoupper($req->getMethod()) === 'GET';
         $contentType = $req->getHeader('Content-Type');
@@ -336,6 +340,10 @@ final class HandlerFuncArgsInjector
             $map1 = StringUtils::xml2assocArray($req->getRawBody());
         } else {
             $map1 = array_merge($req->getQueryParams(), $req->getFormData());
+        }
+
+        if ($debugMode) {
+            $logger->info('dto bind, param map: ' . JsonUtils::toJson($map1));
         }
 
         if (!is_array($map1)) {
@@ -458,7 +466,7 @@ final class HandlerFuncArgsInjector
 
             if ($mapValue === null) {
                 if (!$nullbale) {
-                    return [false, 'fail to get value from param map for field: ' . $fieldName];
+                    return [false, 'fail to get value from param map for field: ' . $field->getName()];
                 }
 
                 try {
@@ -520,7 +528,7 @@ final class HandlerFuncArgsInjector
 
     private static function getMapValueByProperty(array $map1, ReflectionProperty $property): mixed
     {
-        $mapKey = self::getMapKeyByProperty($property);
+        $mapKey = strtolower(self::getMapKeyByProperty($property));
 
         if (empty($mapKey)) {
             return null;
@@ -531,10 +539,13 @@ final class HandlerFuncArgsInjector
                 continue;
             }
 
-            $key = str_replace('-', '', $key);
-            $key = str_replace('_', '', $key);
+            $key = strtolower(strtr($key, ['-' => '', '_' => '']));
 
-            if (strtolower($key) === $mapKey) {
+            if ($key === $mapKey) {
+                return $value;
+            }
+
+            if (StringUtils::ensureLeft($key, 'is') === StringUtils::ensureLeft($mapKey, 'is')) {
                 return $value;
             }
         }
