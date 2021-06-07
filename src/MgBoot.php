@@ -301,12 +301,7 @@ final class MgBoot
 
     private static function setRouteRuleToRequest(Request $request, string $httpMethod, string $handlerFunc): bool
     {
-        if ($request->inSwooleMode()) {
-            $routeRules = SwooleContext::getRouteRules();
-        } else {
-            $routeRules = FpmContext::getRouteRules();
-        }
-
+        $routeRules = MvcContext::getRouteRules();
         $matched = null;
 
         foreach ($routeRules as $rule) {

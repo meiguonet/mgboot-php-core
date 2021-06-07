@@ -3,6 +3,7 @@
 namespace mgboot\core\mvc;
 
 use Lcobucci\JWT\Token;
+use mgboot\common\Cast;
 use mgboot\common\FileUtils;
 use mgboot\common\ReflectUtils;
 use mgboot\common\StringUtils;
@@ -29,6 +30,7 @@ use mgboot\core\MgBoot;
 use ReflectionClass;
 use ReflectionMethod;
 use ReflectionNamedType;
+use Stringable;
 use Throwable;
 
 final class RouteRulesBuilder
@@ -376,9 +378,7 @@ final class RouteRulesBuilder
             return [];
         }
 
-        $list1 = array_map(fn($it) => StringUtils::ensureLeft($it->getName(), "\\"), $annos);
-
-        $list2 = [
+        $excludes = [
             StringUtils::ensureLeft(DeleteMapping::class, "\\"),
             StringUtils::ensureLeft(GetMapping::class, "\\"),
             StringUtils::ensureLeft(JwtAuth::class, "\\"),
@@ -389,6 +389,28 @@ final class RouteRulesBuilder
             StringUtils::ensureLeft(Validate::class, "\\")
         ];
 
-        return ['extraAnnotations' => array_values(array_diff($list1, $list2))];
+        $extraAnnotations = [];
+
+        foreach ($annos as $it) {
+            $clazz = StringUtils::ensureLeft($it->getName(), "\\");
+
+            if (in_array($clazz, $excludes)) {
+                continue;
+            }
+
+            if ($it instanceof Stringable || method_exists($it, '__toString')) {
+                $s1 = Cast::toString($it->__toString());
+
+                if (!str_contains($s1, $clazz)) {
+                    $s1 = $clazz . $s1;
+                }
+            } else {
+                $s1 = $clazz;
+            }
+
+            $extraAnnotations[] = $s1;
+        }
+
+        return compact('extraAnnotations');
     }
 }

@@ -33,6 +33,26 @@ final class MvcContext
         self::$routeRulesCacheDir = $cacheDir;
     }
 
+    /**
+     * @return RouteRule[]
+     */
+    public static function getRouteRules(): array
+    {
+        if (!self::$routeRulesCacheEnabled) {
+            return RouteRulesBuilder::buildRouteRules();
+        }
+
+        list($success, $routeRules) = self::getRouteRulesFromCacheFile();
+
+        if ($success) {
+            return $routeRules;
+        }
+
+        $routeRules = RouteRulesBuilder::buildRouteRules();
+        self::writeRouteRulesToCacheFile($routeRules);
+        return $routeRules;
+    }
+
     public static function buildRouteDispatcher(bool $enableCache = false, string $cacheDir = ''): void
     {
         if ($cacheDir === '' || !is_dir($cacheDir) || !is_writable($cacheDir)) {
@@ -103,26 +123,6 @@ final class MvcContext
     public static function getRouteDispatcher(): ?Dispatcher
     {
         return self::$routeDispatcher;
-    }
-
-    /**
-     * @return RouteRule[]
-     */
-    private static function getRouteRules(): array
-    {
-        if (!self::$routeRulesCacheEnabled) {
-            return RouteRulesBuilder::buildRouteRules();
-        }
-
-        list($success, $routeRules) = self::getRouteRulesFromCacheFile();
-
-        if ($success) {
-            return $routeRules;
-        }
-
-        $routeRules = RouteRulesBuilder::buildRouteRules();
-        self::writeRouteRulesToCacheFile($routeRules);
-        return $routeRules;
     }
 
     private static function getRouteRulesFromCacheFile(): array
