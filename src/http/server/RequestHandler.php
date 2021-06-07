@@ -4,7 +4,11 @@ namespace mgboot\core\http\server;
 
 use mgboot\common\StringUtils;
 use mgboot\core\exception\HttpError;
+use mgboot\core\http\middleware\DataValidateMiddleware;
+use mgboot\core\http\middleware\ExecuteTimeLogMiddleware;
+use mgboot\core\http\middleware\JwtAuthMiddleware;
 use mgboot\core\http\middleware\Middleware;
+use mgboot\core\http\middleware\RequestLogMiddleware;
 use mgboot\core\MgBoot;
 use mgboot\core\mvc\HandlerFuncArgsInjector;
 use mgboot\core\mvc\RoutingContext;
@@ -30,21 +34,18 @@ final class RequestHandler
         return new self($request, $response);
     }
 
-    public function handleRequest(): void
+    /**
+     * @param Middleware[] $middlewares
+     */
+    public function handleRequest(array $middlewares = []): void
     {
+        $request = $this->request;
         $stages = [];
 
-        foreach (MgBoot::getMiddlewares() as $mid) {
-            if ($mid->getType() !== Middleware::PRE_HANDLE_MIDDLEWARE) {
-                continue;
-            }
-
-            $stages = function (RoutingContext $rc) use ($mid) {
-                $mid->preHandle($rc);
-            };
+        foreach ($this->getPreHandleMiddlewares($request, $middlewares) as $mid) {
+            $stages[] = fn(RoutingContext $rc) => $mid->preHandle($rc);
         }
 
-        $request = $this->request;
         $routeRule = $request->getRouteRule();
 
         $stages[] = function (RoutingContext $rc) use ($routeRule) {
@@ -93,14 +94,8 @@ final class RequestHandler
             }
         };
 
-        foreach (MgBoot::getMiddlewares() as $mid) {
-            if ($mid->getType() !== Middleware::POST_HANDLE_MIDDLEWARE) {
-                continue;
-            }
-
-            $stages = function (RoutingContext $rc) use ($mid) {
-                $mid->postHandle($rc);
-            };
+        foreach ($this->getPostHandleMiddlewares($middlewares) as $mid) {
+            $stages[] = fn(RoutingContext $rc) => $mid->preHandle($rc);
         }
 
         $response = $this->response;
@@ -116,5 +111,67 @@ final class RequestHandler
         }
 
         $response->send();
+    }
+
+    /**
+     * @param Request $req
+     * @param Middleware[] $customMiddlewares
+     * @return array
+     */
+    private function getPreHandleMiddlewares(Request $req, array $customMiddlewares = []): array
+    {
+        /* @var Middleware[] $middlewares */
+        $middlewares = [];
+
+        if (MgBoot::isRequestLogEnabled()) {
+            $middlewares[] = RequestLogMiddleware::create();
+        }
+
+        $routeRule = $req->getRouteRule();
+
+        if ($routeRule->getJwtSettingsKey() !== '') {
+            $middlewares[] = JwtAuthMiddleware::create();
+        }
+
+        if (!empty($routeRule->getValidateRules())) {
+            $middlewares[] = DataValidateMiddleware::create();
+        }
+
+        $customMiddlewares = array_filter($customMiddlewares, fn($it) => $it->getType() === Middleware::PRE_HANDLE_MIDDLEWARE);
+
+        if (!empty($customMiddlewares)) {
+            $customMiddlewares = array_values($customMiddlewares);
+            array_push($middlewares, ...$customMiddlewares);
+        }
+
+        if (empty($middlewares)) {
+            return [];
+        }
+
+        $orders = array_map(fn($it) => $it->getOrder(), $middlewares);
+        $middlewares = array_multisort($orders, SORT_ASC, $middlewares);
+        return array_values($middlewares);
+    }
+
+    /**
+     * @param Middleware[] $customMiddlewares
+     * @return array
+     */
+    private function getPostHandleMiddlewares(array $customMiddlewares = []): array
+    {
+        $middlewares = array_filter($customMiddlewares, fn($it) => $it->getType() === Middleware::POST_HANDLE_MIDDLEWARE);
+        $middlewares = empty($middlewares) ? [] : array_values($middlewares);
+
+        if (MgBoot::isExecuteTimeLogEnabled()) {
+            $middlewares[] = ExecuteTimeLogMiddleware::create();
+        }
+
+        if (empty($middlewares)) {
+            return [];
+        }
+
+        $orders = array_map(fn($it) => $it->getOrder(), $middlewares);
+        $middlewares = array_multisort($orders, SORT_ASC, $middlewares);
+        return array_values($middlewares);
     }
 }

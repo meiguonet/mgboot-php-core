@@ -27,6 +27,11 @@ class ExecuteTimeLogMiddleware implements Middleware
         return Middleware::POST_HANDLE_MIDDLEWARE;
     }
 
+    public function getOrder(): int
+    {
+        return Middleware::LOWEST_ORDER;
+    }
+
     public function preHandle(RoutingContext $ctx): void
     {
     }

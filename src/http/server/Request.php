@@ -10,8 +10,10 @@ use mgboot\common\HtmlPurifier;
 use mgboot\common\JwtUtils;
 use mgboot\common\StringUtils;
 use mgboot\common\Swoole;
+use mgboot\common\UploadedFile;
 use mgboot\core\mvc\RouteRule;
 use mgboot\common\RequestParamSecurityMode as SecurityMode;
+use mgboot\core\security\JwtSettings;
 use Throwable;
 
 final class Request
@@ -36,6 +38,11 @@ final class Request
     private array $serverParams = [];
     private array $cookieParams = [];
     private ?RouteRule $routeRule = null;
+
+    /**
+     * @var JwtSettings[]
+     */
+    private array $jwtSettings = [];
 
     private function __construct(mixed $swooleHttpRequest = null)
     {
@@ -78,6 +85,23 @@ final class Request
         }
 
         return $this;
+    }
+
+    public function withJwtSettings(array $settings): self
+    {
+        $this->jwtSettings = $settings;
+        return $this;
+    }
+
+    public function getJwtSettings(string $key): ?JwtSettings
+    {
+        foreach ($this->jwtSettings as $settings) {
+            if ($settings->getKey() === $key) {
+                return $settings;
+            }
+        }
+
+        return null;
     }
 
     public function getProtocolVersion(): string

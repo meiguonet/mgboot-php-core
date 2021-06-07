@@ -28,6 +28,11 @@ class DataValidateMiddleware implements Middleware
         return Middleware::PRE_HANDLE_MIDDLEWARE;
     }
 
+    public function getOrder(): int
+    {
+        return Middleware::HIGHEST_ORDER;
+    }
+
     public function preHandle(RoutingContext $ctx): void
     {
         if (!$ctx->next()) {

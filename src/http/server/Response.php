@@ -14,6 +14,7 @@ use mgboot\core\exception\RequireAccessTokenException;
 use mgboot\core\http\server\response\HtmlResponse;
 use mgboot\core\http\server\response\ResponsePayload;
 use mgboot\core\MgBoot;
+use mgboot\core\security\CorsSettings;
 use Throwable;
 
 final class Response
@@ -64,6 +65,13 @@ final class Response
     private mixed $payload = null;
     private array $extraHeaders = [];
 
+    /**
+     * @var ExceptionHandler[]
+     */
+    private array $exceptionHandlers = [];
+
+    private ?CorsSettings $corsSettings = null;
+
     private function __construct(Request $req, mixed $swooleHttpResponse = null)
     {
         $this->req = $req;
@@ -96,6 +104,35 @@ final class Response
     public function addExtraHeader(string $headerName, string $headerValue): self
     {
         $this->extraHeaders[$headerName] = $headerValue;
+        return $this;
+    }
+
+    /**
+     * @param ExceptionHandler[] $handlers
+     * @return $this
+     */
+    public function withExceptionHandlers(array $handlers): self
+    {
+        $this->extraHeaders = $handlers;
+        return $this;
+    }
+
+    private function getExceptionHandler(string $clazz): ?ExceptionHandler
+    {
+        $clazz = StringUtils::ensureLeft($clazz, "\\");
+
+        foreach ($this->exceptionHandlers as $handler) {
+            if (StringUtils::ensureLeft($handler->getExceptionClassName(), "\\") === $clazz) {
+                return $handler;
+            }
+        }
+
+        return null;
+    }
+
+    public function withCorsSettings(CorsSettings $settings): self
+    {
+        $this->corsSettings = $settings;
         return $this;
     }
 
@@ -290,7 +327,7 @@ final class Response
         $logger = MgBoot::getRuntimeLogger();
 
         if ($ex instanceof RequireAccessTokenException) {
-            $handler = MgBoot::getExceptionHandler(RequireAccessTokenException::class);
+            $handler = $this->getExceptionHandler(RequireAccessTokenException::class);
 
             if ($handler instanceof ExceptionHandler) {
                 $payload = $handler->handleException($ex);
@@ -311,7 +348,7 @@ final class Response
         }
 
         if ($ex instanceof AccessTokenInvalidException) {
-            $handler = MgBoot::getExceptionHandler(AccessTokenInvalidException::class);
+            $handler = $this->getExceptionHandler(AccessTokenInvalidException::class);
 
             if ($handler instanceof ExceptionHandler) {
                 $payload = $handler->handleException($ex);
@@ -332,7 +369,7 @@ final class Response
         }
 
         if ($ex instanceof AccessTokenExpiredException) {
-            $handler = MgBoot::getExceptionHandler(AccessTokenExpiredException::class);
+            $handler = $this->getExceptionHandler(AccessTokenExpiredException::class);
 
             if ($handler instanceof ExceptionHandler) {
                 $payload = $handler->handleException($ex);
@@ -353,7 +390,7 @@ final class Response
         }
 
         if ($ex instanceof DataValidateException) {
-            $handler = MgBoot::getExceptionHandler(DataValidateException::class);
+            $handler = $this->getExceptionHandler(DataValidateException::class);
 
             if ($handler instanceof ExceptionHandler) {
                 $payload = $handler->handleException($ex);
@@ -374,7 +411,7 @@ final class Response
         }
 
         $clazz = get_class($ex);
-        $handler = MgBoot::getExceptionHandler($clazz);
+        $handler = $this->getExceptionHandler($clazz);
 
         if ($handler instanceof ExceptionHandler) {
             $payload = $handler->handleException($ex);
@@ -516,9 +553,9 @@ final class Response
 
     private function addCorsSupport(array $headers): array
     {
-        $settings = MgBoot::getCorsSettings();
+        $settings = $this->corsSettings;
 
-        if (!$settings->isEnabled()) {
+        if (!($settings instanceof CorsSettings) || !$settings->isEnabled()) {
             return $headers;
         }
 

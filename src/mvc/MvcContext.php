@@ -1,21 +1,19 @@
 <?php
 
-namespace mgboot\core\swoole;
+namespace mgboot\core\mvc;
 
 use FastRoute\Dispatcher;
 use FastRoute\RouteCollector;
 use mgboot\common\ArrayUtils;
-use mgboot\common\Swoole;
-use mgboot\core\MgBoot;
-use mgboot\core\mvc\RouteRule;
-use mgboot\core\mvc\RouteRulesBuilder;
+use Throwable;
 use function FastRoute\cachedDispatcher;
 use function FastRoute\simpleDispatcher;
 
-final class SwooleContext
+final class MvcContext
 {
-    private static array $routeRules = [];
-    private static array $routeDispatchers = [];
+    private static bool $routeRulesCacheEnabled = false;
+    private static string $routeRulesCacheDir = '';
+    private static ?Dispatcher $routeDispatcher = null;
 
     private function __construct()
     {
@@ -25,29 +23,18 @@ final class SwooleContext
     {
     }
 
-    /**
-     * @return RouteRule[]
-     */
-    public static function getRouteRules(): array
+    public static function enableRouteRulesCache(string $cacheDir): void
     {
-        $mapKey = MgBoot::buildGlobalVarKey();
-        $routeRules = self::$routeRules[$mapKey];
-
-        if (!ArrayUtils::isList($routeRules) || empty($routeRules)) {
-            $routeRules = RouteRulesBuilder::buildRouteRules();
-
-            if (!empty($routeRules)) {
-                self::$routeRules[$mapKey] = $routeRules;
-            }
+        if ($cacheDir === '' || !is_dir($cacheDir) || !is_writable($cacheDir)) {
+            return;
         }
 
-        return $routeRules;
+        self::$routeRulesCacheEnabled = true;
+        self::$routeRulesCacheDir = $cacheDir;
     }
 
     public static function buildRouteDispatcher(bool $enableCache = false, string $cacheDir = ''): void
     {
-        $mapKey = MgBoot::buildGlobalVarKey();
-
         if ($cacheDir === '' || !is_dir($cacheDir) || !is_writable($cacheDir)) {
             $cacheDir = '';
         }
@@ -55,7 +42,7 @@ final class SwooleContext
         $routeRules = self::getRouteRules();
 
         if (!$enableCache || $cacheDir === '') {
-            self::$routeDispatchers[$mapKey] = simpleDispatcher(function (RouteCollector $r) use ($routeRules) {
+            self::$routeDispatcher = simpleDispatcher(function (RouteCollector $r) use ($routeRules) {
                 foreach ($routeRules as $rule) {
                     switch ($rule->getHttpMethod()) {
                         case 'GET':
@@ -84,19 +71,9 @@ final class SwooleContext
             return;
         }
 
-        $workerId = Swoole::getWorkerId();
+        $cacheFile = $cacheDir . '/fastroute.dat';
 
-        if ($workerId >= 0) {
-            $cacheFile = $cacheDir . "/fastroute.$workerId.dat";
-        } else {
-            $cacheFile = $cacheDir . '/fastroute.dat';
-        }
-
-        if (is_file($cacheFile)) {
-            unlink($cacheFile);
-        }
-
-        self::$routeDispatchers[$mapKey] = cachedDispatcher(function (RouteCollector $r) use ($routeRules) {
+        self::$routeDispatcher = cachedDispatcher(function (RouteCollector $r) use ($routeRules) {
             foreach ($routeRules as $rule) {
                 switch ($rule->getHttpMethod()) {
                     case 'GET':
@@ -125,8 +102,88 @@ final class SwooleContext
 
     public static function getRouteDispatcher(): ?Dispatcher
     {
-        $mapKey = MgBoot::buildGlobalVarKey();
-        $dispatcher = self::$routeDispatchers[$mapKey];
-        return $dispatcher instanceof Dispatcher ? $dispatcher : null;
+        return self::$routeDispatcher;
+    }
+
+    /**
+     * @return RouteRule[]
+     */
+    private static function getRouteRules(): array
+    {
+        if (!self::$routeRulesCacheEnabled) {
+            return RouteRulesBuilder::buildRouteRules();
+        }
+
+        list($success, $routeRules) = self::getRouteRulesFromCacheFile();
+
+        if ($success) {
+            return $routeRules;
+        }
+
+        $routeRules = RouteRulesBuilder::buildRouteRules();
+        self::writeRouteRulesToCacheFile($routeRules);
+        return $routeRules;
+    }
+
+    private static function getRouteRulesFromCacheFile(): array
+    {
+        $cacheFile = self::$routeRulesCacheDir . '/route_rules.php';
+
+        if (!is_file($cacheFile)) {
+            return [false, []];
+        }
+
+        try {
+            $items = include($cacheFile);
+        } catch (Throwable) {
+            $items = null;
+        }
+
+        if (!ArrayUtils::isList($items) || empty($items)) {
+            return [false, []];
+        }
+
+        $routeRules = [];
+
+        foreach ($items as $item) {
+            $item['handlerFuncArgs'] = array_map(fn($it) => HandlerFuncArgInfo::create($it), $item['handlerFuncArgs']);
+            $routeRules[] = RouteRule::create($item);
+        }
+
+        return $routeRules;
+    }
+
+    /**
+     * @param RouteRule[] $routeRules
+     */
+    private static function writeRouteRulesToCacheFile(array $routeRules): void
+    {
+        if (empty($routeRules)) {
+            return;
+        }
+
+        $cacheFile = self::$routeRulesCacheDir . '/route_rules.php';
+        $fp = fopen($cacheFile, 'w');
+
+        if (!is_resource($fp)) {
+            return;
+        }
+
+        $items = [];
+
+        foreach ($routeRules as $item) {
+            $args = array_map(fn($it) => $it->toMap(), $item->getHandlerFuncArgs());
+            $items[] = array_merge($item->toMap(), ['handlerFuncArgs' => $args]);
+        }
+
+        $sb = [
+            "<?php\n",
+            'return ' . var_export($items, true) . ";\n"
+        ];
+
+        flock($fp, LOCK_EX);
+        fwrite($fp, implode('', $sb));
+        flock($fp, LOCK_UN);
+        fclose($fp);
     }
 }

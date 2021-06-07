@@ -4,7 +4,6 @@ namespace mgboot\core;
 
 use FastRoute\Dispatcher;
 use mgboot\common\StringUtils;
-use mgboot\common\Swoole;
 use mgboot\core\exception\AccessTokenExpiredException;
 use mgboot\core\exception\AccessTokenExpiredExceptionHandler;
 use mgboot\core\exception\AccessTokenInvalidException;
@@ -15,21 +14,16 @@ use mgboot\core\exception\ExceptionHandler;
 use mgboot\core\exception\HttpError;
 use mgboot\core\exception\RequireAccessTokenException;
 use mgboot\core\exception\RequireAccessTokenExceptionHandler;
-use mgboot\core\fpm\FpmContext;
-use mgboot\core\http\middleware\DataValidateMiddleware;
-use mgboot\core\http\middleware\ExecuteTimeLogMiddleware;
-use mgboot\core\http\middleware\JwtAuthMiddleware;
 use mgboot\core\http\middleware\Middleware;
-use mgboot\core\http\middleware\RequestLogMiddleware;
 use mgboot\core\http\server\Request;
 use mgboot\core\http\server\RequestHandler;
 use mgboot\core\http\server\Response;
 use mgboot\core\http\server\response\JsonResponse;
 use mgboot\core\logger\NoopLogger;
+use mgboot\core\mvc\MvcContext;
 use mgboot\core\mvc\RouteRule;
 use mgboot\core\security\CorsSettings;
 use mgboot\core\security\JwtSettings;
-use mgboot\core\swoole\SwooleContext;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -69,17 +63,19 @@ final class MgBoot
     public static function handleRequest(Request $request, Response $response): void
     {
         self::ensureBuiltinExceptionHandlersExists();
+        $request->withJwtSettings(self::$jwtSettings);
+        $response->withExceptionHandlers(self::$exceptionHandlers);
+
+        if (self::$corsSettings instanceof CorsSettings) {
+            $response->withCorsSettings(self::$corsSettings);
+        }
 
         if (strtolower($request->getMethod()) === 'options') {
             $response->withPayload(JsonResponse::withPayload(['status' => 200]))->send();
             return;
         }
 
-        if ($request->inSwooleMode()) {
-            $dispatcher = SwooleContext::getRouteDispatcher();
-        } else {
-            $dispatcher = FpmContext::getRouteDispatcher();
-        }
+        $dispatcher = MvcContext::getRouteDispatcher();
 
         if (!($dispatcher instanceof Dispatcher)) {
             $response->withPayload(HttpError::create(400))->send();
@@ -120,7 +116,7 @@ final class MgBoot
                         $request->withPathVariables($pathVariables);
                     }
 
-                    RequestHandler::create($request, $response)->handleRequest();
+                    RequestHandler::create($request, $response)->handleRequest(self::$middlewares);
                     break;
                 default:
                     $response->withPayload(HttpError::create(400))->send();
@@ -195,12 +191,6 @@ final class MgBoot
         self::$corsSettings = $settings;
     }
 
-    public static function getCorsSettings(): CorsSettings
-    {
-        $settings = self::$corsSettings;
-        return $settings instanceof CorsSettings ? $settings : CorsSettings::create(false);
-    }
-
     public static function withJwtSettings(JwtSettings $settings): void
     {
         $idx = -1;
@@ -217,17 +207,6 @@ final class MgBoot
         } else {
             self::$jwtSettings[$idx] = $settings;
         }
-    }
-
-    public static function getJwtSettings(string $key): ?JwtSettings
-    {
-        foreach (self::$jwtSettings as $settings) {
-            if ($settings->getKey() === $key) {
-                return $settings;
-            }
-        }
-
-        return null;
     }
 
     public static function disableGzipOutput(): void
@@ -258,58 +237,26 @@ final class MgBoot
         }
     }
 
-    public static function getExceptionHandler(string $exceptionClassName): ?ExceptionHandler
+    public static function withMiddleware(Middleware $middleware): void
     {
-        $exceptionClassName = StringUtils::ensureLeft($exceptionClassName, "\\");
+        if (self::isMiddlewaresExists(get_class($middleware))) {
+            return;
+        }
+
+        self::$middlewares[] = $middleware;
+    }
+
+    private static function getExceptionHandler(string $clazz): ?ExceptionHandler
+    {
+        $clazz = StringUtils::ensureLeft($clazz, "\\");
 
         foreach (self::$exceptionHandlers as $handler) {
-            if (StringUtils::ensureLeft($handler->getExceptionClassName(), "\\") === $exceptionClassName) {
+            if (StringUtils::ensureLeft($handler->getExceptionClassName(), "\\") === $clazz) {
                 return $handler;
             }
         }
 
         return null;
-    }
-
-    public static function withMiddleware(Middleware $middleware): void
-    {
-        self::ensureBuiltinMiddlewaresExists();
-
-        if (self::isMiddlewaresExists(get_class($middleware))) {
-            return;
-        }
-
-        $list = [];
-
-        foreach (self::$middlewares as $mid) {
-            if ($mid->getType() === Middleware::PRE_HANDLE_MIDDLEWARE) {
-                $list[] = $mid;
-            }
-        }
-
-        $list[] = $middleware;
-
-        foreach (self::$middlewares as $mid) {
-            if ($mid->getType() === Middleware::PRE_HANDLE_MIDDLEWARE) {
-                continue;
-            }
-
-            $list[] = $mid;
-        }
-
-        self::$middlewares = $list;
-    }
-
-    public static function getMiddlewares(): array
-    {
-        self::ensureBuiltinMiddlewaresExists();
-        return self::$middlewares;
-    }
-
-    public static function buildGlobalVarKey(): string
-    {
-        $workerId = Swoole::getWorkerId();
-        return $workerId >= 0 ? "worker$workerId" : 'noworker';
     }
 
     private static function ensureBuiltinExceptionHandlersExists(): void
@@ -339,31 +286,12 @@ final class MgBoot
         }
     }
 
-    private static function ensureBuiltinMiddlewaresExists(): void
+    private static function isMiddlewaresExists(string $clazz): bool
     {
-        if (!self::isMiddlewaresExists(RequestLogMiddleware::class)) {
-            self::$middlewares[] = RequestLogMiddleware::create();
-        }
-
-        if (!self::isMiddlewaresExists(JwtAuthMiddleware::class)) {
-            self::$middlewares[] = JwtAuthMiddleware::create();
-        }
-
-        if (!self::isMiddlewaresExists(DataValidateMiddleware::class)) {
-            self::$middlewares[] = DataValidateMiddleware::create();
-        }
-
-        if (!self::isMiddlewaresExists(ExecuteTimeLogMiddleware::class)) {
-            self::$middlewares[] = ExecuteTimeLogMiddleware::create();
-        }
-    }
-
-    private static function isMiddlewaresExists(string $middlewareClassName): bool
-    {
-        $middlewareClassName = StringUtils::ensureLeft($middlewareClassName, "\\");
+        $clazz = StringUtils::ensureLeft($clazz, "\\");
 
         foreach (self::$middlewares as $mid) {
-            if (StringUtils::ensureLeft(get_class($mid), "\\") === $middlewareClassName) {
+            if (StringUtils::ensureLeft(get_class($mid), "\\") === $clazz) {
                 return true;
             }
         }

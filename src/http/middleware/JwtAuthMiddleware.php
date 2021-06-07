@@ -7,7 +7,6 @@ use mgboot\common\JwtUtils;
 use mgboot\core\exception\AccessTokenExpiredException;
 use mgboot\core\exception\AccessTokenInvalidException;
 use mgboot\core\exception\RequireAccessTokenException;
-use mgboot\core\MgBoot;
 use mgboot\core\mvc\RoutingContext;
 use mgboot\core\security\JwtSettings;
 
@@ -31,19 +30,25 @@ class JwtAuthMiddleware implements Middleware
         return Middleware::PRE_HANDLE_MIDDLEWARE;
     }
 
+    public function getOrder(): int
+    {
+        return Middleware::HIGHEST_ORDER;
+    }
+
     public function preHandle(RoutingContext $ctx): void
     {
         if (!$ctx->next()) {
             return;
         }
 
-        $key = $ctx->getRequest()->getRouteRule()->getJwtSettingsKey();
+        $req = $ctx->getRequest();
+        $key = $req->getRouteRule()->getJwtSettingsKey();
 
         if ($key === '') {
             return;
         }
 
-        $settings = MgBoot::getJwtSettings($key);
+        $settings = $req->getJwtSettings($key);
 
         if (!($settings instanceof JwtSettings) || $settings->getIssuer() === '') {
             return;
