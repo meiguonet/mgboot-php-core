@@ -4,16 +4,8 @@ namespace mgboot\core;
 
 use FastRoute\Dispatcher;
 use mgboot\common\StringUtils;
-use mgboot\core\exception\AccessTokenExpiredException;
-use mgboot\core\exception\AccessTokenExpiredExceptionHandler;
-use mgboot\core\exception\AccessTokenInvalidException;
-use mgboot\core\exception\AccessTokenInvalidExceptionHandler;
-use mgboot\core\exception\DataValidateException;
-use mgboot\core\exception\DataValidateExceptionHandler;
 use mgboot\core\exception\ExceptionHandler;
 use mgboot\core\exception\HttpError;
-use mgboot\core\exception\RequireAccessTokenException;
-use mgboot\core\exception\RequireAccessTokenExceptionHandler;
 use mgboot\core\http\middleware\Middleware;
 use mgboot\core\http\server\Request;
 use mgboot\core\http\server\RequestHandler;
@@ -62,7 +54,6 @@ final class MgBoot
 
     public static function handleRequest(Request $request, Response $response): void
     {
-        self::ensureBuiltinExceptionHandlersExists();
         $response->withExceptionHandlers(self::$exceptionHandlers);
 
         if (self::$corsSettings instanceof CorsSettings) {
@@ -267,33 +258,6 @@ final class MgBoot
         }
 
         return null;
-    }
-
-    private static function ensureBuiltinExceptionHandlersExists(): void
-    {
-        $handler = self::getExceptionHandler(AccessTokenExpiredException::class);
-
-        if (!($handler instanceof ExceptionHandler)) {
-            self::withExceptionHandler(AccessTokenExpiredExceptionHandler::create());
-        }
-
-        $handler = self::getExceptionHandler(AccessTokenInvalidException::class);
-
-        if (!($handler instanceof ExceptionHandler)) {
-            self::withExceptionHandler(AccessTokenInvalidExceptionHandler::create());
-        }
-
-        $handler = self::getExceptionHandler(DataValidateException::class);
-
-        if (!($handler instanceof ExceptionHandler)) {
-            self::withExceptionHandler(DataValidateExceptionHandler::create());
-        }
-
-        $handler = self::getExceptionHandler(RequireAccessTokenException::class);
-
-        if (!($handler instanceof ExceptionHandler)) {
-            self::withExceptionHandler(RequireAccessTokenExceptionHandler::create());
-        }
     }
 
     private static function isMiddlewaresExists(string $clazz): bool
