@@ -2,7 +2,6 @@
 
 namespace mgboot\core\http\server;
 
-use mgboot\common\AppConf;
 use mgboot\common\ExceptionUtils;
 use mgboot\common\StringUtils;
 use mgboot\common\Swoole;
@@ -110,7 +109,7 @@ final class Response
      */
     public function withExceptionHandlers(array $handlers): self
     {
-        $this->extraHeaders = $handlers;
+        $this->exceptionHandlers = $handlers;
         return $this;
     }
 
@@ -310,11 +309,6 @@ final class Response
     {
         $logger = MgBoot::getRuntimeLogger();
         $clazz = get_class($ex);
-
-        if (AppConf::getBoolean('logging.enable-mgboot-debug')) {
-            $logger->info("exception found: $clazz, error message: {$ex->getMessage()}");
-        }
-
         $handler = null;
 
         foreach ($this->exceptionHandlers as $it) {
@@ -328,20 +322,18 @@ final class Response
             $payload = $handler->handleException($ex);
 
             if ($payload instanceof ResponsePayload) {
-                $headers = [
-                    'Content-Type' => $payload->getContentType()
-                ];
-
-                return [200, $headers, $payload->getContents()];
+                $this->payload = $payload;
+                return $this->preSend();
             }
 
             $logger->error('bad response payload from exception handler: ' . get_class($handler));
-            return [500, [], ''];
+            $this->payload = HttpError::create(500);
+            return $this->preSend();
         }
 
-        $logger->info("no exception handler found for exception class: $clazz");
         $logger->error(ExceptionUtils::getStackTrace($ex));
-        return [500, [], ''];
+        $this->payload = HttpError::create(500);
+        return $this->preSend();
     }
 
     private function handleAttachmentResponseForFpm(string $contents): array

@@ -3,14 +3,12 @@
 namespace mgboot\core\mvc;
 
 use Lcobucci\JWT\Token;
-use mgboot\common\AppConf;
 use mgboot\common\ArrayUtils;
 use mgboot\common\Cast;
 use mgboot\common\JsonUtils;
 use mgboot\common\StringUtils;
 use mgboot\common\UploadedFile;
 use mgboot\core\http\server\Request;
-use mgboot\core\MgBoot;
 use ReflectionClass;
 use ReflectionMethod;
 use ReflectionNamedType;
@@ -322,8 +320,6 @@ final class HandlerFuncArgsInjector
 
     private static function injectDto(Request $req, array &$args, HandlerFuncArgInfo $info): void
     {
-        $logger = MgBoot::getRuntimeLogger();
-        $debugMode = AppConf::getBoolean('logging.enable-mgboot-debug');
         $fmt1 = self::$err1 . ', reason: %s';
         $isGet = strtoupper($req->getMethod()) === 'GET';
         $contentType = $req->getHeader('Content-Type');
@@ -340,10 +336,6 @@ final class HandlerFuncArgsInjector
             $map1 = StringUtils::xml2assocArray($req->getRawBody());
         } else {
             $map1 = array_merge($req->getQueryParams(), $req->getFormData());
-        }
-
-        if ($debugMode) {
-            $logger->info('dto bind, param map: ' . JsonUtils::toJson($map1));
         }
 
         if (!is_array($map1)) {
