@@ -323,7 +323,7 @@ final class HandlerFuncArgsInjector
     private static function injectDto(Request $req, array &$args, HandlerFuncArgInfo $info): void
     {
         $logger = MgBoot::getRuntimeLogger();
-        $debugMode = AppConf::getBoolean('logging.enable-dto-bind-log');
+        $debugMode = AppConf::getBoolean('logging.enable-mgboot-debug');
         $fmt1 = self::$err1 . ', reason: %s';
         $isGet = strtoupper($req->getMethod()) === 'GET';
         $contentType = $req->getHeader('Content-Type');

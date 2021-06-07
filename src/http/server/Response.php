@@ -2,15 +2,12 @@
 
 namespace mgboot\core\http\server;
 
+use mgboot\common\AppConf;
 use mgboot\common\ExceptionUtils;
 use mgboot\common\StringUtils;
 use mgboot\common\Swoole;
-use mgboot\core\exception\AccessTokenExpiredException;
-use mgboot\core\exception\AccessTokenInvalidException;
-use mgboot\core\exception\DataValidateException;
 use mgboot\core\exception\ExceptionHandler;
 use mgboot\core\exception\HttpError;
-use mgboot\core\exception\RequireAccessTokenException;
 use mgboot\core\http\server\response\HtmlResponse;
 use mgboot\core\http\server\response\ResponsePayload;
 use mgboot\core\MgBoot;
@@ -115,19 +112,6 @@ final class Response
     {
         $this->extraHeaders = $handlers;
         return $this;
-    }
-
-    private function getExceptionHandler(string $clazz): ?ExceptionHandler
-    {
-        $clazz = StringUtils::ensureLeft($clazz, "\\");
-
-        foreach ($this->exceptionHandlers as $handler) {
-            if (StringUtils::ensureLeft($handler->getExceptionClassName(), "\\") === $clazz) {
-                return $handler;
-            }
-        }
-
-        return null;
     }
 
     public function withCorsSettings(CorsSettings $settings): self
@@ -325,93 +309,20 @@ final class Response
     private function handleException(Throwable $ex): array
     {
         $logger = MgBoot::getRuntimeLogger();
-
-        if ($ex instanceof RequireAccessTokenException) {
-            $handler = $this->getExceptionHandler(RequireAccessTokenException::class);
-
-            if ($handler instanceof ExceptionHandler) {
-                $payload = $handler->handleException($ex);
-
-                if ($payload instanceof ResponsePayload) {
-                    $this->payload = $payload;
-                    return $this->preSend();
-                }
-
-                $logger->error(ExceptionUtils::getStackTrace($ex));
-                $this->payload = HttpError::create(500);
-                return $this->preSend();
-            }
-
-            $logger->error(ExceptionUtils::getStackTrace($ex));
-            $this->payload = HttpError::create(500);
-            return $this->preSend();
-        }
-
-        if ($ex instanceof AccessTokenInvalidException) {
-            $handler = $this->getExceptionHandler(AccessTokenInvalidException::class);
-
-            if ($handler instanceof ExceptionHandler) {
-                $payload = $handler->handleException($ex);
-
-                if ($payload instanceof ResponsePayload) {
-                    $this->payload = $payload;
-                    return $this->preSend();
-                }
-
-                $logger->error(ExceptionUtils::getStackTrace($ex));
-                $this->payload = HttpError::create(500);
-                return $this->preSend();
-            }
-
-            $logger->error(ExceptionUtils::getStackTrace($ex));
-            $this->payload = HttpError::create(500);
-            return $this->preSend();
-        }
-
-        if ($ex instanceof AccessTokenExpiredException) {
-            $handler = $this->getExceptionHandler(AccessTokenExpiredException::class);
-
-            if ($handler instanceof ExceptionHandler) {
-                $payload = $handler->handleException($ex);
-
-                if ($payload instanceof ResponsePayload) {
-                    $this->payload = $payload;
-                    return $this->preSend();
-                }
-
-                $logger->error(ExceptionUtils::getStackTrace($ex));
-                $this->payload = HttpError::create(500);
-                return $this->preSend();
-            }
-
-            $logger->error(ExceptionUtils::getStackTrace($ex));
-            $this->payload = HttpError::create(500);
-            return $this->preSend();
-        }
-
-        if ($ex instanceof DataValidateException) {
-            $handler = $this->getExceptionHandler(DataValidateException::class);
-
-            if ($handler instanceof ExceptionHandler) {
-                $payload = $handler->handleException($ex);
-
-                if ($payload instanceof ResponsePayload) {
-                    $this->payload = $payload;
-                    return $this->preSend();
-                }
-
-                $logger->error(ExceptionUtils::getStackTrace($ex));
-                $this->payload = HttpError::create(500);
-                return $this->preSend();
-            }
-
-            $logger->error(ExceptionUtils::getStackTrace($ex));
-            $this->payload = HttpError::create(500);
-            return $this->preSend();
-        }
-
         $clazz = get_class($ex);
-        $handler = $this->getExceptionHandler($clazz);
+
+        if (AppConf::getBoolean('logging.enable-mgboot-debug')) {
+            $logger->info("exception found: $clazz");
+        }
+
+        $handler = null;
+
+        foreach ($this->exceptionHandlers as $it) {
+            if (str_contains($it->getExceptionClassName(), $clazz)) {
+                $handler = $it;
+                break;
+            }
+        }
 
         if ($handler instanceof ExceptionHandler) {
             $payload = $handler->handleException($ex);
@@ -421,11 +332,12 @@ final class Response
                 return $this->preSend();
             }
 
-            $logger->error(ExceptionUtils::getStackTrace($ex));
+            $logger->error('bad response payload form exception handler: ' . get_class($handler));
             $this->payload = HttpError::create(500);
             return $this->preSend();
         }
 
+        $logger->info("no exception handler found for exception class: $clazz");
         $logger->error(ExceptionUtils::getStackTrace($ex));
         $this->payload = HttpError::create(500);
         return $this->preSend();
