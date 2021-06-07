@@ -2,6 +2,7 @@
 
 namespace mgboot\core\http\server;
 
+use mgboot\common\AppConf;
 use mgboot\common\StringUtils;
 use mgboot\core\exception\HttpError;
 use mgboot\core\http\middleware\DataValidateMiddleware;
@@ -51,6 +52,10 @@ final class RequestHandler
         $stages[] = function (RoutingContext $rc) use ($routeRule) {
             if (!$rc->next()) {
                 return;
+            }
+
+            if (AppConf::getBoolean('logging.enable-mgboot-debug')) {
+                MgBoot::getRuntimeLogger()->info("request handler run: {$routeRule->getHandler()}");
             }
 
             list($clazz, $methodName) = explode('@', $routeRule->getHandler());
