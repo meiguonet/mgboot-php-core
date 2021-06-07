@@ -320,6 +320,7 @@ final class HandlerFuncArgsInjector
 
     private static function injectDto(Request $req, array &$args, HandlerFuncArgInfo $info): void
     {
+        $fmt1 = self::$err1 . ', reason: %s';
         $isGet = strtoupper($req->getMethod()) === 'GET';
         $contentType = $req->getHeader('Content-Type');
         $isJsonPayload = stripos($contentType, 'application/json') !== false;
@@ -343,7 +344,15 @@ final class HandlerFuncArgsInjector
                 return;
             }
 
-            throw new RuntimeException(sprintf(self::$err1, $req->getRouteRule()->getHandler(), $info->getName(), $info->getDtoClassName()));
+            $errorTips = sprintf(
+                $fmt1,
+                $req->getRouteRule()->getHandler(),
+                $info->getName(),
+                $info->getDtoClassName(),
+                'param map is empty'
+            );
+
+            throw new RuntimeException($errorTips);
         }
 
         $className = $info->getDtoClassName();
@@ -360,39 +369,57 @@ final class HandlerFuncArgsInjector
                 return;
             }
 
-            throw new RuntimeException(sprintf(self::$err1, $req->getRouteRule()->getHandler(), $info->getName(), $info->getDtoClassName()));
+            $errorTips = sprintf(
+                $fmt1,
+                $req->getRouteRule()->getHandler(),
+                $info->getName(),
+                $info->getDtoClassName(),
+                '无法实例化 dto 对象'
+            );
+
+            throw new RuntimeException($errorTips);
         }
 
-        if (!self::mapToBean($bean, $map1)) {
+        list($success, $errorTips) = self::mapToBean($bean, $map1);
+
+        if (!$success) {
             if ($info->isNullable()) {
                 $args[] = null;
                 return;
             }
 
-            throw new RuntimeException(sprintf(self::$err1, $req->getRouteRule()->getHandler(), $info->getName(), $info->getDtoClassName()));
+            $errorTips = sprintf(
+                $fmt1,
+                $req->getRouteRule()->getHandler(),
+                $info->getName(),
+                $info->getDtoClassName(),
+                $errorTips
+            );
+
+            throw new RuntimeException($errorTips);
         }
 
         $args[] = $bean;
     }
 
-    private static function mapToBean(object $bean, array $map1): bool
+    private static function mapToBean(object $bean, array $map1): array
     {
         try {
             $clazz = new ReflectionClass($bean);
-        } catch (Throwable) {
-            return false;
+        } catch (Throwable $ex) {
+            return [false, $ex->getMessage()];
         }
 
         try {
             $fields = $clazz->getProperties(ReflectionProperty::IS_PRIVATE);
-        } catch (Throwable) {
-            return false;
+        } catch (Throwable $ex) {
+            return [false, $ex->getMessage()];
         }
 
         try {
             $methods = $clazz->getMethods(ReflectionMethod::IS_PUBLIC);
-        } catch (Throwable) {
-            return false;
+        } catch (Throwable $ex) {
+            return [false, $ex->getMessage()];
         }
 
         foreach ($fields as $field) {
@@ -431,13 +458,13 @@ final class HandlerFuncArgsInjector
 
             if ($mapValue === null) {
                 if (!$nullbale) {
-                    return false;
+                    return [false, 'fail to get value from param map for field: ' . $fieldName];
                 }
 
                 try {
                     $setter->invoke($bean, null);
-                } catch (Throwable) {
-                    return false;
+                } catch (Throwable $ex) {
+                    return [false, $ex->getMessage()];
                 }
 
                 continue;
@@ -447,16 +474,16 @@ final class HandlerFuncArgsInjector
                 case 'int':
                     try {
                         $setter->invoke($bean, Cast::toInt($mapValue, 0));
-                    } catch (Throwable) {
-                        return false;
+                    } catch (Throwable $ex) {
+                        return [false, $ex->getMessage()];
                     }
 
                     break;
                 case 'float':
                     try {
                         $setter->invoke($bean, Cast::toFloat($mapValue, 0.0));
-                    } catch (Throwable) {
-                        return false;
+                    } catch (Throwable $ex) {
+                        return [false, $ex->getMessage()];
                     }
 
                     break;
@@ -464,31 +491,31 @@ final class HandlerFuncArgsInjector
                 case 'bool':
                     try {
                         $setter->invoke($bean, Cast::toBoolean($mapValue));
-                    } catch (Throwable) {
-                        return false;
+                    } catch (Throwable $ex) {
+                        return [false, $ex->getMessage()];
                     }
 
                     break;
                 case 'string':
                     try {
                         $setter->invoke($bean, Cast::toString($mapValue));
-                    } catch (Throwable) {
-                        return false;
+                    } catch (Throwable $ex) {
+                        return [false, $ex->getMessage()];
                     }
 
                     break;
                 default:
                     try {
                         $setter->invoke($bean, $mapValue);
-                    } catch (Throwable) {
-                        return false;
+                    } catch (Throwable $ex) {
+                        return [false, $ex->getMessage()];
                     }
 
                     break;
             }
         }
 
-        return true;
+        return [true, ''];
     }
 
     private static function getMapValueByProperty(array $map1, ReflectionProperty $property): mixed
