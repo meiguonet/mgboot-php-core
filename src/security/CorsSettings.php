@@ -55,6 +55,27 @@ final class CorsSettings
         return new self($enabled);
     }
 
+    public function withAllowedOrigins(array|string $origins): self
+    {
+        $_origins = [];
+
+        if (ArrayUtils::isStringArray($origins)) {
+            $_origins = $origins;
+        } else if (is_string($origins) && $origins !== '') {
+            $_origins = preg_split('/[\x20\t]*,[\x20\t]*/', trim($origins));
+        }
+
+        if (!empty($_origins)) {
+            if (in_array('*', $_origins)) {
+                $_origins = ['*'];
+            }
+
+            $this->allowedOrigins = $_origins;
+        }
+
+        return $this;
+    }
+
     public function withAllowedHeaders(array|string $headers): self
     {
         $_headers = [];
