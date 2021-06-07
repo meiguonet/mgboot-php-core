@@ -22,7 +22,7 @@ final class JwtSettings
     {
     }
 
-    public function create(string $key): self
+    public static function create(string $key): self
     {
         return new self($key);
     }
