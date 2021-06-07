@@ -148,9 +148,8 @@ final class RequestHandler
             return [];
         }
 
-        $orders = array_map(fn($it) => $it->getOrder(), $middlewares);
-        $middlewares = array_multisort($orders, SORT_ASC, $middlewares);
-        return array_values($middlewares);
+        $middlewares = collect($middlewares)->sortBy(fn($it) => $it->getOrder(), SORT_NUMERIC);
+        return array_values($middlewares->toArray());
     }
 
     /**
@@ -170,8 +169,7 @@ final class RequestHandler
             return [];
         }
 
-        $orders = array_map(fn($it) => $it->getOrder(), $middlewares);
-        $middlewares = array_multisort($orders, SORT_ASC, $middlewares);
-        return array_values($middlewares);
+        $middlewares = collect($middlewares)->sortBy(fn($it) => $it->getOrder(), SORT_NUMERIC);
+        return array_values($middlewares->toArray());
     }
 }
