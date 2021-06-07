@@ -39,11 +39,11 @@ final class JsonResponse implements ResponsePayload
         $payload = $this->payload;
 
         if (is_string($payload)) {
-            if (str_starts_with($payload, '{') || str_ends_with($payload, '}')) {
+            if (str_starts_with($payload, '{') && str_ends_with($payload, '}')) {
                 return $payload;
             }
 
-            if (str_starts_with($payload, '[') || str_ends_with($payload, ']')) {
+            if (str_starts_with($payload, '[') && str_ends_with($payload, ']')) {
                 return $payload;
             }
 
@@ -53,11 +53,11 @@ final class JsonResponse implements ResponsePayload
         if (is_array($payload)) {
             $contents = JsonUtils::toJson($payload);
 
-            if (str_starts_with($contents, '{') || str_ends_with($contents, '}')) {
+            if (str_starts_with($contents, '{') && str_ends_with($contents, '}')) {
                 return $contents;
             }
 
-            if (str_starts_with($contents, '[') || str_ends_with($contents, ']')) {
+            if (str_starts_with($contents, '[') && str_ends_with($contents, ']')) {
                 return $contents;
             }
 
@@ -72,7 +72,7 @@ final class JsonResponse implements ResponsePayload
                     $contents = '';
                 }
 
-                if (str_starts_with($contents, '{') || str_ends_with($contents, '}')) {
+                if (str_starts_with($contents, '{') && str_ends_with($contents, '}')) {
                     return $contents;
                 }
             }
@@ -82,7 +82,7 @@ final class JsonResponse implements ResponsePayload
             if (ArrayUtils::isAssocArray($map1)) {
                 $contents = JsonUtils::toJson($map1);
 
-                if (str_starts_with($contents, '{') || str_ends_with($contents, '}')) {
+                if (str_starts_with($contents, '{') && str_ends_with($contents, '}')) {
                     return $contents;
                 }
             }
