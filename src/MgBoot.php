@@ -63,7 +63,6 @@ final class MgBoot
     public static function handleRequest(Request $request, Response $response): void
     {
         self::ensureBuiltinExceptionHandlersExists();
-        $request->withJwtSettings(self::$jwtSettings);
         $response->withExceptionHandlers(self::$exceptionHandlers);
 
         if (self::$corsSettings instanceof CorsSettings) {
@@ -207,6 +206,17 @@ final class MgBoot
         } else {
             self::$jwtSettings[$idx] = $settings;
         }
+    }
+
+    public static function getJwtSettings(string $key): ?JwtSettings
+    {
+        foreach (self::$jwtSettings as $settings) {
+            if ($settings->getKey() === $key) {
+                return $settings;
+            }
+        }
+
+        return null;
     }
 
     public static function disableGzipOutput(): void
