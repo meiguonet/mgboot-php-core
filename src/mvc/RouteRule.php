@@ -3,7 +3,7 @@
 namespace mgboot\core\mvc;
 
 
-use mgboot\common\MapAbleTrait;
+use mgboot\trait\MapAbleTrait;
 
 final class RouteRule
 {

@@ -3,7 +3,8 @@
 namespace mgboot\core\annotation;
 
 use Attribute;
-use mgboot\common\ArrayUtils;
+use mgboot\constant\Regexp;
+use mgboot\util\ArrayUtils;
 
 #[Attribute(Attribute::TARGET_METHOD)]
 final class Validate
@@ -20,7 +21,7 @@ final class Validate
         $_rules = [];
 
         if (is_string($rules) && $rules !== '') {
-            $_rules = preg_split('/[\x20\t]*,[\x20\t]*/', $rules);
+            $_rules = preg_split(Regexp::COMMA_SEP, $rules);
         } else if (ArrayUtils::isStringArray($rules)) {
             $_rules = $rules;
         }

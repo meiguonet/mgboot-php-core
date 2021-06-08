@@ -3,11 +3,7 @@
 namespace mgboot\core\mvc;
 
 use Lcobucci\JWT\Token;
-use mgboot\common\Cast;
-use mgboot\common\FileUtils;
-use mgboot\common\ReflectUtils;
-use mgboot\common\StringUtils;
-use mgboot\common\TokenizeUtils;
+use mgboot\Cast;
 use mgboot\core\annotation\ClientIp;
 use mgboot\core\annotation\DeleteMapping;
 use mgboot\core\annotation\DtoBind;
@@ -27,6 +23,10 @@ use mgboot\core\annotation\UploadedFile;
 use mgboot\core\annotation\Validate;
 use mgboot\core\http\server\Request;
 use mgboot\core\MgBoot;
+use mgboot\util\FileUtils;
+use mgboot\util\ReflectUtils;
+use mgboot\util\StringUtils;
+use mgboot\util\TokenizeUtils;
 use ReflectionClass;
 use ReflectionMethod;
 use ReflectionNamedType;

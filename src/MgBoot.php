@@ -3,9 +3,13 @@
 namespace mgboot\core;
 
 use FastRoute\Dispatcher;
-use mgboot\common\StringUtils;
+use mgboot\core\exception\AccessTokenExpiredException;
+use mgboot\core\exception\AccessTokenInvalidException;
+use mgboot\core\exception\DataValidateException;
 use mgboot\core\exception\ExceptionHandler;
+use mgboot\core\exception\ExceptionHandlerImpl;
 use mgboot\core\exception\HttpError;
+use mgboot\core\exception\RequireAccessTokenException;
 use mgboot\core\http\middleware\Middleware;
 use mgboot\core\http\server\Request;
 use mgboot\core\http\server\RequestHandler;
@@ -16,6 +20,7 @@ use mgboot\core\mvc\MvcContext;
 use mgboot\core\mvc\RouteRule;
 use mgboot\core\security\CorsSettings;
 use mgboot\core\security\JwtSettings;
+use mgboot\util\StringUtils;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -222,6 +227,7 @@ final class MgBoot
 
     public static function withExceptionHandler(ExceptionHandler $handler): void
     {
+        self::checkNecessaryExceptionHandlers();
         $idx = -1;
 
         foreach (self::$exceptionHandlers as $i => $item) {
@@ -247,17 +253,29 @@ final class MgBoot
         self::$middlewares[] = $middleware;
     }
 
-    private static function getExceptionHandler(string $clazz): ?ExceptionHandler
+    private static function checkNecessaryExceptionHandlers(): void
     {
-        $clazz = StringUtils::ensureLeft($clazz, "\\");
+        $classes = [
+            AccessTokenExpiredException::class,
+            AccessTokenInvalidException::class,
+            DataValidateException::class,
+            RequireAccessTokenException::class
+        ];
 
-        foreach (self::$exceptionHandlers as $handler) {
-            if (StringUtils::ensureLeft($handler->getExceptionClassName(), "\\") === $clazz) {
-                return $handler;
+        foreach ($classes as $clazz) {
+            $found = false;
+
+            foreach (self::$exceptionHandlers as $handler) {
+                if (str_contains($handler->getExceptionClassName(), $clazz)) {
+                    $found = true;
+                    break;
+                }
+            }
+
+            if (!$found) {
+                self::$exceptionHandlers[] = ExceptionHandlerImpl::create($clazz);
             }
         }
-
-        return null;
     }
 
     private static function isMiddlewaresExists(string $clazz): bool

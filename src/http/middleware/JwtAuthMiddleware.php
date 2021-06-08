@@ -3,13 +3,13 @@
 namespace mgboot\core\http\middleware;
 
 use Lcobucci\JWT\Token;
-use mgboot\common\JwtUtils;
 use mgboot\core\exception\AccessTokenExpiredException;
 use mgboot\core\exception\AccessTokenInvalidException;
 use mgboot\core\exception\RequireAccessTokenException;
 use mgboot\core\MgBoot;
 use mgboot\core\mvc\RoutingContext;
 use mgboot\core\security\JwtSettings;
+use mgboot\util\JwtUtils;
 
 class JwtAuthMiddleware implements Middleware
 {

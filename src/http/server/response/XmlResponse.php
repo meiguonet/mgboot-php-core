@@ -2,8 +2,9 @@
 
 namespace mgboot\core\http\server\response;
 
-use mgboot\common\ArrayUtils;
+use mgboot\constant\Regexp;
 use mgboot\core\exception\HttpError;
+use mgboot\util\ArrayUtils;
 
 class XmlResponse implements ResponsePayload
 {
@@ -28,7 +29,7 @@ class XmlResponse implements ResponsePayload
         $_cdataKeys = [];
 
         if (is_string($cdataKeys) && $cdataKeys !== '') {
-            $_cdataKeys = preg_split('/[\x20\t]*,[\x20\t]*/', trim($cdataKeys));
+            $_cdataKeys = preg_split(Regexp::COMMA_SEP, trim($cdataKeys));
         } else if (ArrayUtils::isStringArray($cdataKeys)) {
             $_cdataKeys = $cdataKeys;
         }

@@ -2,10 +2,10 @@
 
 namespace mgboot\core\http\middleware;
 
-use mgboot\common\StringUtils;
 use mgboot\core\http\server\Request;
 use mgboot\core\MgBoot;
 use mgboot\core\mvc\RoutingContext;
+use mgboot\util\StringUtils;
 
 class ExecuteTimeLogMiddleware implements Middleware
 {

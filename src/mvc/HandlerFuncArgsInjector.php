@@ -3,12 +3,13 @@
 namespace mgboot\core\mvc;
 
 use Lcobucci\JWT\Token;
-use mgboot\common\ArrayUtils;
-use mgboot\common\Cast;
-use mgboot\common\JsonUtils;
-use mgboot\common\StringUtils;
-use mgboot\common\UploadedFile;
+use mgboot\Cast;
 use mgboot\core\http\server\Request;
+use mgboot\http\server\UploadedFile;
+use mgboot\util\ArrayUtils;
+use mgboot\util\JsonUtils;
+use mgboot\util\ReflectUtils;
+use mgboot\util\StringUtils;
 use ReflectionClass;
 use ReflectionMethod;
 use ReflectionNamedType;
@@ -20,7 +21,7 @@ use Throwable;
 
 final class HandlerFuncArgsInjector
 {
-    private static string $err1 = 'fail to inject arg for handler function %s, name: %s, type: %s';
+    private static string $fmt1 = 'fail to inject arg for handler function %s, name: %s, type: %s';
 
     private function __construct()
     {
@@ -46,7 +47,7 @@ final class HandlerFuncArgsInjector
                 $jwt = $req->getJwt();
 
                 if (!($jwt instanceof Token) && !$info->isNullable()) {
-                    throw new RuntimeException(sprintf(self::$err1, $handler, $info->getName(), $info->getType()));
+                    self::thowException($handler, $info);
                 }
 
                 $args[] = $jwt;
@@ -98,7 +99,7 @@ final class HandlerFuncArgsInjector
                 continue;
             }
 
-            throw new RuntimeException(sprintf(self::$err1, $handler, $info->getName(), $info->getType()));
+            self::thowException($handler, $info);
         }
 
         return $args;
@@ -128,15 +129,9 @@ final class HandlerFuncArgsInjector
                 if ($info->isNullable()) {
                     $args[] = null;
                 } else {
-                    $errorTips = self::$err1 . ', reason: unsupported jwt claim type [%s]';
-
-                    throw new RuntimeException(sprintf(
-                        $errorTips,
-                        $req->getRouteRule()->getHandler(),
-                        $info->getName(),
-                        $info->getType(),
-                        $info->getType()
-                    ));
+                    $fmt = '@@fmt:' . self::$fmt1 . ', reason: unsupported jwt claim type [%s]';
+                    $handler = $req->getRouteRule()->getHandler();
+                    self::thowException($handler, $info, $fmt, $info->getType());
                 }
 
                 break;
@@ -164,15 +159,9 @@ final class HandlerFuncArgsInjector
                 if ($info->isNullable()) {
                     $args[] = null;
                 } else {
-                    $errorTips = self::$err1 . ', reason: unsupported path variable type [%s]';
-
-                    throw new RuntimeException(sprintf(
-                        $errorTips,
-                        $req->getRouteRule()->getHandler(),
-                        $info->getName(),
-                        $info->getType(),
-                        $info->getType()
-                    ));
+                    $fmt = '@@fmt:' . self::$fmt1 . ', reason: unsupported path variable type [%s]';
+                    $handler = $req->getRouteRule()->getHandler();
+                    self::thowException($handler, $info, $fmt, $info->getType());
                 }
 
                 break;
@@ -203,15 +192,9 @@ final class HandlerFuncArgsInjector
                 if ($info->isNullable()) {
                     $args[] = null;
                 } else {
-                    $errorTips = self::$err1 . ', reason: unsupported request param type [%s]';
-
-                    throw new RuntimeException(sprintf(
-                        $errorTips,
-                        $req->getRouteRule()->getHandler(),
-                        $info->getName(),
-                        $info->getType(),
-                        $info->getType()
-                    ));
+                    $fmt = '@@fmt:' . self::$fmt1 . ', reason: unsupported request param type [%s]';
+                    $handler = $req->getRouteRule()->getHandler();
+                    self::thowException($handler, $info, $fmt, $info->getType());
                 }
 
                 break;
@@ -220,13 +203,15 @@ final class HandlerFuncArgsInjector
 
     private static function injectParamMap(Request $req, array &$args, HandlerFuncArgInfo $info): void
     {
+        $handler = $req->getRouteRule()->getHandler();
+
         if ($info->getType() !== 'array') {
             if ($info->isNullable()) {
                 $args[] = null;
                 return;
             }
 
-            throw new RuntimeException(sprintf(self::$err1, $req->getRouteRule()->getHandler(), $info->getName(), $info->getType()));
+            self::thowException($handler, $info);
         }
 
         $isGet = strtoupper($req->getMethod()) === 'GET';
@@ -252,7 +237,7 @@ final class HandlerFuncArgsInjector
                 return;
             }
 
-            throw new RuntimeException(sprintf(self::$err1, $req->getRouteRule()->getHandler(), $info->getName(), $info->getType()));
+            self::thowException($handler, $info);
         }
 
         foreach ($map1 as $key => $val) {
@@ -283,7 +268,8 @@ final class HandlerFuncArgsInjector
                 return;
             }
 
-            throw new RuntimeException(sprintf(self::$err1, $req->getRouteRule()->getHandler(), $info->getName(), $info->getType()));
+            $handler = $req->getRouteRule()->getHandler();
+            self::thowException($handler, $info);
         }
 
         $args[] = $uploadFile;
@@ -297,7 +283,8 @@ final class HandlerFuncArgsInjector
                 return;
             }
 
-            throw new RuntimeException(sprintf(self::$err1, $req->getRouteRule()->getHandler(), $info->getName(), $info->getType()));
+            $handler = $req->getRouteRule()->getHandler();
+            self::thowException($handler, $info);
         }
 
         $payload = $req->getRawBody();
@@ -320,7 +307,8 @@ final class HandlerFuncArgsInjector
 
     private static function injectDto(Request $req, array &$args, HandlerFuncArgInfo $info): void
     {
-        $fmt1 = self::$err1 . ', reason: %s';
+        $handler = $req->getRouteRule()->getHandler();
+        $fmt = '@@fmt:' . self::$fmt1 . ', reason: %s';
         $isGet = strtoupper($req->getMethod()) === 'GET';
         $contentType = $req->getHeader('Content-Type');
         $isJsonPayload = stripos($contentType, 'application/json') !== false;
@@ -344,15 +332,7 @@ final class HandlerFuncArgsInjector
                 return;
             }
 
-            $errorTips = sprintf(
-                $fmt1,
-                $req->getRouteRule()->getHandler(),
-                $info->getName(),
-                $info->getDtoClassName(),
-                'param map is empty'
-            );
-
-            throw new RuntimeException($errorTips);
+            self::thowException($handler, $info, $fmt, 'param map is empty');
         }
 
         $className = $info->getDtoClassName();
@@ -369,15 +349,7 @@ final class HandlerFuncArgsInjector
                 return;
             }
 
-            $errorTips = sprintf(
-                $fmt1,
-                $req->getRouteRule()->getHandler(),
-                $info->getName(),
-                $info->getDtoClassName(),
-                '无法实例化 dto 对象'
-            );
-
-            throw new RuntimeException($errorTips);
+            self::thowException($handler, $info, $fmt, '无法实例化 dto 对象');
         }
 
         list($success, $errorTips) = self::mapToBean($bean, $map1);
@@ -388,15 +360,7 @@ final class HandlerFuncArgsInjector
                 return;
             }
 
-            $errorTips = sprintf(
-                $fmt1,
-                $req->getRouteRule()->getHandler(),
-                $info->getName(),
-                $info->getDtoClassName(),
-                $errorTips
-            );
-
-            throw new RuntimeException($errorTips);
+            self::thowException($handler, $info, $fmt, $errorTips);
         }
 
         $args[] = $bean;
@@ -423,17 +387,7 @@ final class HandlerFuncArgsInjector
         }
 
         foreach ($fields as $field) {
-            $fieldName = strtolower($field->getName());
-            $setter = null;
-
-            foreach ($methods as $method) {
-                $methodName = strtolower($method->getName());
-
-                if ($methodName === "set$fieldName") {
-                    $setter = $method;
-                    break;
-                }
-            }
+            $setter = ReflectUtils::getSetter($field, $methods);
 
             if (!($setter instanceof ReflectionMethod)) {
                 continue;
@@ -454,11 +408,11 @@ final class HandlerFuncArgsInjector
                 $fieldType = '';
             }
 
-            $mapValue = self::getMapValueByProperty($map1, $field);
+            $mapValue = ReflectUtils::getMapValueByProperty($map1, $field);
 
             if ($mapValue === null) {
                 if (!$nullbale) {
-                    return [false, 'fail to get value from param map for field: ' . $field->getName()];
+                    return [false, "fail to get value from param map for field: {$field->getName()}"];
                 }
 
                 try {
@@ -518,63 +472,24 @@ final class HandlerFuncArgsInjector
         return [true, ''];
     }
 
-    private static function getMapValueByProperty(array $map1, ReflectionProperty $property): mixed
+    private static function thowException(string $handler, HandlerFuncArgInfo $info, mixed... $args): void
     {
-        $mapKey = strtolower(self::getMapKeyByProperty($property));
+        $fmt = self::$fmt1;
+        $params = [$handler, $info->getName(), $info->getType()];
 
-        if (empty($mapKey)) {
-            return null;
-        }
+        if (!empty($args)) {
+            if (is_string($args[0]) && str_starts_with('@@fmt:')) {
+                $fmt = str_replace('@@fmt:', '', array_shift($args));
 
-        foreach ($map1 as $key => $value) {
-            if (!is_string($key)) {
-                continue;
-            }
-
-            $key = strtolower(strtr($key, ['-' => '', '_' => '']));
-
-            if ($key === $mapKey) {
-                return $value;
-            }
-
-            if (StringUtils::ensureLeft($key, 'is') === StringUtils::ensureLeft($mapKey, 'is')) {
-                return $value;
+                if (!empty($args)) {
+                    array_push($params, ...$args);
+                }
+            } else {
+                array_push($params, ...$args);
             }
         }
 
-        return null;
-    }
-
-    private static function getMapKeyByProperty(ReflectionProperty $property): string
-    {
-        try {
-            $annos = $property->getAttributes();
-        } catch (Throwable) {
-            $annos = [];
-        }
-
-        $anno = null;
-
-        foreach ($annos as $it) {
-            if (str_ends_with($it->getName(), 'MapKey')) {
-                $anno = $it;
-                break;
-            }
-        }
-
-        if (is_object($anno) && method_exists($anno, 'getValue')) {
-            try {
-                $mapKey = Cast::toString($anno->getValue());
-            } catch (Throwable) {
-                $mapKey = '';
-            }
-
-            if ($mapKey !== '') {
-                return $mapKey;
-            }
-        }
-
-        $pname = $property->getName();
-        return is_string($pname) ? $pname : '';
+        $errorTips = sprintf($fmt, ...$params);
+        throw new RuntimeException($errorTips);
     }
 }

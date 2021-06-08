@@ -2,7 +2,7 @@
 
 namespace mgboot\core\security;
 
-use mgboot\common\StringUtils;
+use mgboot\util\StringUtils;
 
 final class JwtSettings
 {

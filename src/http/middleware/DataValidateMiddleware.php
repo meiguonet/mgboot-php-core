@@ -2,11 +2,11 @@
 
 namespace mgboot\core\http\middleware;
 
-use mgboot\common\JsonUtils;
-use mgboot\common\StringUtils;
 use mgboot\core\exception\DataValidateException;
 use mgboot\core\mvc\RoutingContext;
 use mgboot\core\validator\DataValidator;
+use mgboot\util\JsonUtils;
+use mgboot\util\StringUtils;
 
 class DataValidateMiddleware implements Middleware
 {

@@ -2,8 +2,9 @@
 
 namespace mgboot\core\security;
 
-use mgboot\common\ArrayUtils;
-use mgboot\common\StringUtils;
+use mgboot\constant\Regexp;
+use mgboot\util\ArrayUtils;
+use mgboot\util\StringUtils;
 
 final class CorsSettings
 {
@@ -62,7 +63,7 @@ final class CorsSettings
         if (ArrayUtils::isStringArray($origins)) {
             $_origins = $origins;
         } else if (is_string($origins) && $origins !== '') {
-            $_origins = preg_split('/[\x20\t]*,[\x20\t]*/', trim($origins));
+            $_origins = preg_split(Regexp::COMMA_SEP, trim($origins));
         }
 
         if (!empty($_origins)) {
@@ -83,7 +84,7 @@ final class CorsSettings
         if (ArrayUtils::isStringArray($headers)) {
             $_headers = $headers;
         } else if (is_string($headers) && $headers !== '') {
-            $_headers = preg_split('/[\x20\t]*,[\x20\t]*/', trim($headers));
+            $_headers = preg_split(Regexp::COMMA_SEP, trim($headers));
         }
 
         if (!empty($_headers)) {
@@ -100,7 +101,7 @@ final class CorsSettings
         if (ArrayUtils::isStringArray($methods)) {
             $_methods = $methods;
         } else if (is_string($methods) && $methods !== '') {
-            $_methods = preg_split('/[\x20\t]*,[\x20\t]*/', trim($methods));
+            $_methods = preg_split(Regexp::COMMA_SEP, trim($methods));
         }
 
         if (!empty($_methods)) {
@@ -123,7 +124,7 @@ final class CorsSettings
         if (ArrayUtils::isStringArray($headers)) {
             $_headers = $headers;
         } else if (is_string($headers) && $headers !== '') {
-            $_headers = preg_split('/[\x20\t]*,[\x20\t]*/', trim($headers));
+            $_headers = preg_split(Regexp::COMMA_SEP, trim($headers));
         }
 
         if (!empty($_headers)) {

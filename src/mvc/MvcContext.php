@@ -4,7 +4,7 @@ namespace mgboot\core\mvc;
 
 use FastRoute\Dispatcher;
 use FastRoute\RouteCollector;
-use mgboot\common\ArrayUtils;
+use mgboot\util\ArrayUtils;
 use Throwable;
 use function FastRoute\cachedDispatcher;
 use function FastRoute\simpleDispatcher;

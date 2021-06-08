@@ -3,9 +3,11 @@
 namespace mgboot\core\validator;
 
 use DateTime;
-use mgboot\common\ArrayUtils;
-use mgboot\common\Cast;
-use mgboot\common\StringUtils;
+use mgboot\bo\DotAccessData;
+use mgboot\Cast;
+use mgboot\constant\Regexp;
+use mgboot\util\ArrayUtils;
+use mgboot\util\StringUtils;
 
 final class DataValidator
 {
@@ -24,6 +26,14 @@ final class DataValidator
 
     public static function addRuleChecker(RuleChecker $checker): void
     {
+        $matched = collect(self::$customRuleCheckers)->first(fn($it) => (
+            strtolower($it->getRuleName()) === strtolower($checker->getRuleName())
+        ));
+
+        if ($matched instanceof RuleChecker) {
+            return;
+        }
+
         self::$customRuleCheckers[] = $checker;
     }
     
@@ -33,6 +43,7 @@ final class DataValidator
             return $failfast ? '' : [];
         }
 
+        $bo = DotAccessData::fromArray($data);
         $validateErrors = [];
 
         foreach ($rules as $rule) {
@@ -80,7 +91,7 @@ final class DataValidator
                 continue;
             }
 
-            $fieldValue = Cast::toString($data[$fieldName]);
+            $fieldValue = $bo->getString($fieldName);
 
             if ($checkOnNotEmpty && $fieldValue === '') {
                 continue;
@@ -100,7 +111,7 @@ final class DataValidator
             }
 
             if ($validator === 'EqualsWith') {
-                if ($fieldValue !== Cast::toString($data[$checkValue])) {
+                if ($fieldValue !== $bo->getString($checkValue)) {
                     if ($failfast) {
                         return $errorTips;
                     }
@@ -127,16 +138,11 @@ final class DataValidator
                 continue;
             }
 
-            $checker = null;
+            $checker = collect(self::$customRuleCheckers)->first(fn($it) => (
+                strtolower($it->getRuleName()) === strtolower($validator)
+            ));
 
-            foreach (self::$customRuleCheckers as $rc) {
-                if (strtolower($rc->getRuleName()) === strtolower($validator)) {
-                    $checker = $rc;
-                    break;
-                }
-            }
-
-            if (!($checker instanceof RuleChecker) || $checker->check(...$args)) {
+            if (!($checker instanceof RuleChecker) || $checker->check($fieldValue, $checkValue)) {
                 continue;
             }
 
@@ -260,7 +266,7 @@ final class DataValidator
         }
 
         $value = Cast::toInt($value);
-        $parts = preg_split('/[\x20\t]*,[\x20\t]*/', trim($range));
+        $parts = preg_split(Regexp::COMMA_SEP, trim($range));
         $n1 = $n2 = PHP_INT_MIN;
 
         foreach ($parts as $p) {
@@ -291,7 +297,7 @@ final class DataValidator
         }
 
         $value = Cast::toInt($value);
-        $parts = preg_split('/[\x20\t]*,[\x20\t]*/', trim($range));
+        $parts = preg_split(Regexp::COMMA_SEP, trim($range));
         $nums = [];
 
         foreach ($parts as $p) {
@@ -376,7 +382,7 @@ final class DataValidator
         }
 
         $value = bcadd($value, 0, 6);
-        $parts = preg_split('/[\x20\t]*,[\x20\t]*/', trim($range));
+        $parts = preg_split(Regexp::COMMA_SEP, trim($range));
         $n1 = $n2 = PHP_FLOAT_MIN;
 
         foreach ($parts as $p) {
@@ -422,12 +428,12 @@ final class DataValidator
 
     private static function isStrIn(string $value, string $range): bool
     {
-        return in_array($value, preg_split('/[\x20\t]*,[\x20\t]*/', trim($range)));
+        return in_array($value, preg_split(Regexp::COMMA_SEP, trim($range)));
     }
 
     private static function isStrInI(string $value, string $range): bool
     {
-        $parts = preg_split('/[\x20\t]*,[\x20\t]*/', trim($range));
+        $parts = preg_split(Regexp::COMMA_SEP, trim($range));
         $parts = array_map(fn($it) => strtolower($it), $parts);
         return in_array(strtolower($value), $parts);
     }
@@ -500,7 +506,7 @@ final class DataValidator
     private static function isStrLenBetween(string $value, string $range): bool
     {
         $cnt = mb_strlen($value);
-        $parts = preg_split('/[\x20\t]*,[\x20\t]*/', trim($range));
+        $parts = preg_split(Regexp::COMMA_SEP, trim($range));
         $n1 = $n2 = PHP_INT_MIN;
 
         foreach ($parts as $p) {

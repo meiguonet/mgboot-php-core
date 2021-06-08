@@ -2,9 +2,9 @@
 
 namespace mgboot\core\http\server\response;
 
-use mgboot\common\ArrayUtils;
-use mgboot\common\JsonUtils;
 use mgboot\core\exception\HttpError;
+use mgboot\util\JsonUtils;
+use mgboot\util\StringUtils;
 use Throwable;
 
 final class JsonResponse implements ResponsePayload
@@ -39,51 +39,34 @@ final class JsonResponse implements ResponsePayload
         $payload = $this->payload;
 
         if (is_string($payload)) {
-            if (str_starts_with($payload, '{') && str_ends_with($payload, '}')) {
-                return $payload;
-            }
-
-            if (str_starts_with($payload, '[') && str_ends_with($payload, ']')) {
-                return $payload;
-            }
-
-            return HttpError::create(400);
+            return StringUtils::isJson($payload) ? $payload : HttpError::create(400);
         }
 
         if (is_array($payload)) {
-            $contents = JsonUtils::toJson($payload);
-
-            if (str_starts_with($contents, '{') && str_ends_with($contents, '}')) {
-                return $contents;
-            }
-
-            if (str_starts_with($contents, '[') && str_ends_with($contents, ']')) {
-                return $contents;
-            }
-
-            return HttpError::create(400);
+            $json = JsonUtils::toJson($payload);
+            return StringUtils::isJson($json) ? $json : HttpError::create(400);
         }
 
         if (is_object($payload)) {
             if (method_exists($payload, 'toMap')) {
                 try {
-                    $contents = JsonUtils::toJson($payload->toMap());
+                    $json = JsonUtils::toJson($payload->toMap());
                 } catch (Throwable) {
-                    $contents = '';
+                    $json = '';
                 }
 
-                if (str_starts_with($contents, '{') && str_ends_with($contents, '}')) {
-                    return $contents;
+                if (StringUtils::isJson($json)) {
+                    return $json;
                 }
             }
 
             $map1 = get_object_vars($payload);
 
-            if (ArrayUtils::isAssocArray($map1)) {
-                $contents = JsonUtils::toJson($map1);
+            if (!empty($map1)) {
+                $json = JsonUtils::toJson($map1);
 
-                if (str_starts_with($contents, '{') && str_ends_with($contents, '}')) {
-                    return $contents;
+                if (StringUtils::isJson($json)) {
+                    return $json;
                 }
             }
         }

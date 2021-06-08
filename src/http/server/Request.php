@@ -4,15 +4,16 @@ namespace mgboot\core\http\server;
 
 use Lcobucci\JWT\Encoding\JoseEncoder;
 use Lcobucci\JWT\Token;
-use mgboot\common\ArrayUtils;
-use mgboot\common\Cast;
-use mgboot\common\HtmlPurifier;
-use mgboot\common\JwtUtils;
-use mgboot\common\RequestParamSecurityMode as SecurityMode;
-use mgboot\common\StringUtils;
-use mgboot\common\Swoole;
-use mgboot\common\UploadedFile;
+use mgboot\Cast;
+use mgboot\constant\Regexp;
+use mgboot\constant\RequestParamSecurityMode as SecurityMode;
 use mgboot\core\mvc\RouteRule;
+use mgboot\HtmlPurifier;
+use mgboot\http\server\UploadedFile;
+use mgboot\swoole\Swoole;
+use mgboot\util\ArrayUtils;
+use mgboot\util\JwtUtils;
+use mgboot\util\StringUtils;
 use Throwable;
 
 final class Request
@@ -224,7 +225,7 @@ final class Request
             return '';
         }
 
-        $parts = preg_split('/[\x20\t]*,[\x20\t]*/', trim($ip));
+        $parts = preg_split(Regexp::COMMA_SEP, trim($ip));
         return is_array($parts) && !empty($parts) ? trim($parts[0]) : '';
     }
 

@@ -3,7 +3,7 @@
 namespace mgboot\core\annotation;
 
 use Attribute;
-use mgboot\common\RequestParamSecurityMode as SecurityMode;
+use mgboot\constant\RequestParamSecurityMode as SecurityMode;
 
 #[Attribute(Attribute::TARGET_PROPERTY | Attribute::TARGET_PARAMETER)]
 final class RequestParam

@@ -2,9 +2,9 @@
 
 namespace mgboot\core\http\server\response;
 
-use mgboot\common\FileUtils;
-use mgboot\common\MapAbleTrait;
 use mgboot\core\exception\HttpError;
+use mgboot\trait\MapAbleTrait;
+use mgboot\util\FileUtils;
 
 final class AttachmentResponse implements ResponsePayload
 {

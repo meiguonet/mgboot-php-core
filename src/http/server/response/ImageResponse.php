@@ -3,8 +3,8 @@
 namespace mgboot\core\http\server\response;
 
 
-use mgboot\common\MapAbleTrait;
 use mgboot\core\exception\HttpError;
+use mgboot\trait\MapAbleTrait;
 use Throwable;
 
 final class ImageResponse implements ResponsePayload

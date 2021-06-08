@@ -3,7 +3,8 @@
 namespace mgboot\core\annotation;
 
 use Attribute;
-use mgboot\common\ArrayUtils;
+use mgboot\constant\Regexp;
+use mgboot\util\ArrayUtils;
 
 #[Attribute(Attribute::TARGET_PARAMETER)]
 final class ParamMap
@@ -18,7 +19,7 @@ final class ParamMap
         $rules = [];
 
         if (is_string($arg0) && $arg0 !== '') {
-            $rules = preg_split('/[\x20\t]*,[\x20\t]*/', $arg0);
+            $rules = preg_split(Regexp::COMMA_SEP, $arg0);
         } else if (ArrayUtils::isStringArray($rules)) {
             $rules = $arg0;
         }

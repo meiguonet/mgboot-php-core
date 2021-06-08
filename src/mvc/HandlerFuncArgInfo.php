@@ -2,7 +2,7 @@
 
 namespace mgboot\core\mvc;
 
-use mgboot\common\MapAbleTrait;
+use mgboot\trait\MapAbleTrait;
 
 class HandlerFuncArgInfo
 {
