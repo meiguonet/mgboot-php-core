@@ -4,7 +4,6 @@ namespace mgboot\core\mvc;
 
 use FastRoute\Dispatcher;
 use FastRoute\RouteCollector;
-use mgboot\util\ArrayUtils;
 use Throwable;
 use function FastRoute\cachedDispatcher;
 use function FastRoute\simpleDispatcher;
@@ -139,18 +138,64 @@ final class MvcContext
             $items = null;
         }
 
-        if (!ArrayUtils::isList($items) || empty($items)) {
+        if (!is_array($items) || empty($items)) {
             return [false, []];
         }
 
         $routeRules = [];
 
         foreach ($items as $item) {
-            $item['handlerFuncArgs'] = array_map(fn($it) => HandlerFuncArgInfo::create($it), $item['handlerFuncArgs']);
-            $routeRules[] = RouteRule::create($item);
+            if ($item instanceof RouteRule) {
+                $routeRules[] = $item;
+                continue;
+            }
+
+            if (!is_array($item) || empty($item)) {
+                continue;
+            }
+
+            $handlerFuncArgs = [];
+
+            if (is_array($item['handlerFuncArgs']) && !empty($item['handlerFuncArgs'])) {
+                foreach ($item['handlerFuncArgs'] as $it) {
+                    if (!is_array($it) || empty($it)) {
+                        continue;
+                    }
+
+                    try {
+                        $info = HandlerFuncArgInfo::create($it);
+                    } catch (Throwable) {
+                        continue;
+                    }
+
+                    if ($info->getName() === '') {
+                        continue;
+                    }
+
+                    $handlerFuncArgs[] = $info;
+                }
+            }
+
+            unset($item['handlerFuncArgs']);
+
+            try {
+                $rule = RouteRule::create($item);
+            } catch (Throwable) {
+                continue;
+            }
+
+            if ($rule->getHandler() === '') {
+                continue;
+            }
+
+            if (!empty($handlerFuncArgs)) {
+                $rule->setHandlerFuncArgs($handlerFuncArgs);
+            }
+
+            $routeRules[] = $rule;
         }
 
-        return $routeRules;
+        return [true, $routeRules];
     }
 
     /**
